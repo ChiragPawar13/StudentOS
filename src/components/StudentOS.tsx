@@ -10,6 +10,11 @@ import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken,
   getFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, onSnapshot, serverTimestamp, deleteDoc
 } from '@/lib/local-firebase';
+
+const appId = 'default-studentos-app';
+const app = initializeApp({});
+const auth = getAuth(app);
+const db = getFirestore(app);
 import {
   BookOpen,
   Search,
@@ -1007,9 +1012,11 @@ const SubjectHub = ({ subject, notes, onClose, onOpenAddNote, onAskQuestion, onD
 
   const handleGenerateSyllabus = async () => {
     setIsGeneratingSyllabus(true);
-    const res = await generateAICurriculum(subjectNotes);
+    const res = await generateAICurriculum(subjectNotes, subject.name, (t) => onUpdateSubject(subject.id, { curriculum: t }));
     if (res.text) {
       await onUpdateSubject(subject.id, { curriculum: res.text });
+    } else if (res.error) {
+      alert(res.error);
     }
     setIsGeneratingSyllabus(false);
   };
