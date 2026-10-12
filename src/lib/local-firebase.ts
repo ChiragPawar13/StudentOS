@@ -55,13 +55,13 @@ export const updateDoc = async (ref: { col: string; id: string }, value: Rec) =>
   const data = load();
   const cur = data[ref.col]?.[ref.id];
   if (!cur) return;
-  data[ref.col][ref.id] = { ...cur, ...value };
+  data[ref.col]![ref.id] = { ...cur, ...value };
   save(data);
   notify(ref.col);
 };
 export const deleteDoc = async (ref: { col: string; id: string }) => {
   const data = load();
-  if (data[ref.col]) delete data[ref.col][ref.id];
+  delete data[ref.col]?.[ref.id];
   save(data);
   notify(ref.col);
 };

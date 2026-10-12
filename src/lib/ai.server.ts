@@ -124,7 +124,7 @@ function friendly(err: unknown) {
 }
 
 export async function handleAI(request: Request) {
-  const apiKey = process.env.LOVABLE_API_KEY;
+  const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) return new Response("AI is not configured.", { status: 500 });
   const body = (await request.json()) as Body;
 
