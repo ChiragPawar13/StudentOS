@@ -8,7 +8,7 @@ export async function streamAI(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal,
+    signal: signal ?? null,
   });
   if (!res.ok || !res.body) throw new Error((await res.text()) || "AI request failed");
   const reader = res.body.getReader();
