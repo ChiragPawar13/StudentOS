@@ -6,7 +6,8 @@ const MODEL = "openai/gpt-6-astra";
 
 type Note = { title?: string; unit?: string; subjectName?: string; content?: string };
 type Body = {
-  task: "answer" | "curriculum" | "scan";
+  task: "answer" | "curriculum" | "scan" | "extract";
+  file?: { name: string; mime: string; data: string };
   question?: string;
   mode?: string;
   notes?: Note[];
@@ -65,10 +66,23 @@ function build(body: Body): { instructions: string; messages: ModelMessage[] } {
           role: "user",
           content: [
             { type: "text", text: "Extract the question from this image." },
-            { type: "image", image: body.image ?? "" },
+            { type: "image", image: new URL(body.image ?? "") },
           ],
         },
       ],
+    };
+  }
+
+  if (body.task === "extract") {
+    const f = body.file!;
+    const part =
+      f.mime === "application/pdf"
+        ? ({ type: "file", filename: f.name, data: f.data, mediaType: "application/pdf" } as const)
+        : ({ type: "image", image: new URL(`data:${f.mime};base64,${f.data}`) } as const);
+    return {
+      instructions:
+        "You convert study material (PDFs, slides, scanned or handwritten notes, photos of textbooks) into clean markdown study notes. Transcribe ALL the text faithfully in reading order, keep headings, lists, tables, formulas (LaTeX $...$) and code. Briefly describe diagrams in [Diagram: ...]. Do not summarise or skip content. Output only the notes.",
+      messages: [{ role: "user", content: [{ type: "text", text: `Extract the notes from "${f.name}".` }, part] }],
     };
   }
 

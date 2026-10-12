@@ -33,3 +33,47 @@ export const fileToDataUrl = (file: File) =>
     r.onerror = reject;
     r.readAsDataURL(file);
   });
+
+const toBase64 = async (file: File) => (await fileToDataUrl(file)).split(",")[1] ?? "";
+
+export const NOTE_FILE_ACCEPT =
+  ".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.json,.html,.rtf,.png,.jpg,.jpeg,.webp,.gif,image/*,application/pdf";
+
+// Turns any supported study file into note text.
+export async function extractFileText(file: File, onText: (t: string) => void = () => {}): Promise<string> {
+  const name = file.name.toLowerCase();
+  const ext = name.split(".").pop() ?? "";
+  if (file.size > 20 * 1024 * 1024) throw new Error("File is too large (max 20MB).");
+
+  if (ext === "pdf" || file.type === "application/pdf" || file.type.startsWith("image/")) {
+    const mime = ext === "pdf" ? "application/pdf" : file.type || "image/png";
+    return streamAI({ task: "extract", file: { name: file.name, mime, data: await toBase64(file) } }, onText);
+  }
+  if (ext === "docx") {
+    const mammoth = await import("mammoth");
+    const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return value;
+  }
+  if (ext === "pptx") {
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const slides = Object.keys(zip.files)
+      .filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f))
+      .sort((a, b) => Number(a.match(/\d+/g)!.pop()) - Number(b.match(/\d+/g)!.pop()));
+    const out: string[] = [];
+    for (const [i, s] of slides.entries()) {
+      const xml = await zip.files[s]!.async("string");
+      const paras = xml.split("</a:p>").map((p) => [...p.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((m) => m[1]).join("")).filter(Boolean);
+      out.push(`### Slide ${i + 1}\n${paras.map((p) => `- ${p}`).join("\n")}`);
+    }
+    return out.join("\n\n");
+  }
+  if (ext === "xlsx" || ext === "xls") {
+    const XLSX = await import("xlsx");
+    const wb = XLSX.read(await file.arrayBuffer());
+    return wb.SheetNames.map((n) => `### ${n}\n${XLSX.utils.sheet_to_csv(wb.Sheets[n]!)}`).join("\n\n");
+  }
+  if (ext === "doc" || ext === "ppt") throw new Error("Old .doc/.ppt files aren't supported — save as .docx/.pptx or PDF.");
+  const text = await file.text();
+  return ext === "html" ? new DOMParser().parseFromString(text, "text/html").body.innerText : text;
+}

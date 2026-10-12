@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
-import { streamAI, fileToDataUrl } from '@/lib/studentos-ai';
+import { streamAI, fileToDataUrl, extractFileText, NOTE_FILE_ACCEPT } from '@/lib/studentos-ai';
 import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken,
   getFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, onSnapshot, serverTimestamp, deleteDoc
@@ -533,16 +533,15 @@ const AddNoteModal = ({ isOpen, onClose, subjects, defaultSubjectId, onAddNote, 
       setTitle(file.name.replace(/\.[^/.]+$/, ""));
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const fileText = event.target.result;
-      setContent(fileText);
-      setMessage(`Successfully loaded file: ${file.name}`);
-    };
-    reader.onerror = () => {
-      setMessage('Error reading file. Please paste text directly.');
-    };
-    reader.readAsText(file);
+    e.target.value = '';
+    setMessage(`Reading ${file.name}...`);
+    extractFileText(file, (t) => setContent(t))
+      .then((text) => {
+        if (!text.trim()) throw new Error('No text found in this file.');
+        setContent(text);
+        setMessage(`Successfully loaded file: ${file.name}`);
+      })
+      .catch((err) => setMessage(err?.message || 'Error reading file. Please paste text directly.'));
   };
 
   const handleSubmit = async (e) => {
@@ -687,11 +686,11 @@ const AddNoteModal = ({ isOpen, onClose, subjects, defaultSubjectId, onAddNote, 
               ref={fileInputRef}
               onChange={handleFileUpload}
               className="hidden"
-              accept=".txt,.md,.json,.csv,.doc,.docx"
+              accept={NOTE_FILE_ACCEPT}
             />
             <Upload className="w-6 h-6 text-blue-600 mx-auto" />
             <p className="text-xs font-medium text-slate-700">
-              {uploadedFileName ? `Attached File: ${uploadedFileName}` : 'Upload text/notes file or click browse'}
+              {uploadedFileName ? `Attached File: ${uploadedFileName}` : 'Upload PDF, Word, PowerPoint, Excel, image or text notes'}
             </p>
             <div className="flex justify-center space-x-2">
               <button
@@ -699,7 +698,7 @@ const AddNoteModal = ({ isOpen, onClose, subjects, defaultSubjectId, onAddNote, 
                 onClick={() => fileInputRef.current?.click()}
                 className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
               >
-                Browse File (.txt, .md)
+                Browse File (PDF, Word, PPT, Excel, image, text)
               </button>
             </div>
           </div>
